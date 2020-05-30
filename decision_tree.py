@@ -7,6 +7,14 @@ import math
 from operator import itemgetter
 
 DATA_PATH = 'data.csv'
+DECISION_NAME = ['Nie pracuj.', 'Pracuj.']
+DATA_NAME = {
+    'czy_zagraniczna': ['nie', 'tak'],
+    'mozliwosci_rozwoju': ['małe', 'średnie', 'duże'],
+    'wielkosc_firmy': ['mała', 'średnia', 'duża'],
+    'typ_firmy': ['startup', 'korporacja', 'firma państwowa'],
+    'wynagrodzenie': ['brak', 'małe', 'średnie', 'duże']
+}
 
 
 def entropy(target):
@@ -54,8 +62,12 @@ def make_var_max_dict(data, var_names):
 
 class LeafNode:
     """Leaf decision tree node."""
-    def __init__(self, decision):
+    def __init__(self, decision, text):
         self.decision = decision
+        self.text = text
+
+    def __str__(self):
+        return self.text + str(self.decision)
 
     def decide(self, _):
         """Return leaf node decision."""
@@ -76,18 +88,22 @@ class DecisionNode:
         self.question_value = decisions[0][3]
         if not entropy(decisions[0][1][0]):
             if decisions[0][1][0]:
-                self.yes_decision = LeafNode(decisions[0][1][0][0])
+                self.yes_decision = LeafNode(decisions[0][1][0][0], "Yes -> ")
             else:
-                self.yes_decision = LeafNode(decisions[0][1][2][0])
+                self.yes_decision = LeafNode(decisions[0][1][2][0], "Yes -> ")
         else:
             self.yes_decision = DecisionNode(decisions[0][1][1], decisions[0][1][0], var_names)
         if not entropy(decisions[0][1][2]):
             if decisions[0][1][2]:
-                self.no_decision = LeafNode(decisions[0][1][2][0])
+                self.no_decision = LeafNode(decisions[0][1][2][0], "No -> ")
             else:
-                self.no_decision = LeafNode(decisions[0][1][0][0])
+                self.no_decision = LeafNode(decisions[0][1][0][0], "No -> ")
         else:
             self.no_decision = DecisionNode(decisions[0][1][3], decisions[0][1][2], var_names)
+        self.text = f"Does {self.question_var} equals {self.question_value}?"
+
+    def __str__(self):
+        return self.text
 
     def decide(self, instance):
         """Decide based on value."""
@@ -102,12 +118,12 @@ def print_tree(root, indent=0):
     dash = "|-" * indent
     blank = "| " * indent
     if isinstance(root, LeafNode):
-        print(blank + f"Decision: {root.decide(None)}")
+        print(blank + f"Decyzja: {DECISION_NAME[root.decide(None)]}")
     else:
-        print(blank + f"Question: Does {root.question_var} equal {root.question_value}?")
-        print(blank + "Yes:")
+        print(blank + f"Pytanie: Czy {root.question_var} równe jest {DATA_NAME[root.question_var][root.question_value]}?")
+        print(blank + "Tak:")
         print_tree(root.yes_decision, indent+1)
-        print(blank + "No:")
+        print(blank + "Nie:")
         print_tree(root.no_decision, indent+1)
 
 
