@@ -7,7 +7,7 @@ import math
 from operator import itemgetter
 
 DATA_PATH = 'data.csv'
-DECISION_NAME = ['Nie pracuj.', 'Pracuj.']
+DECISION_NAME = ['Nie pracuj.', 'Może pracuj', 'Pracuj.']
 DATA_NAME = {
     'czy_zagraniczna': ['nie', 'tak'],
     'mozliwosci_rozwoju': ['małe', 'średnie', 'duże'],
@@ -19,12 +19,13 @@ DATA_NAME = {
 
 def entropy(target):
     """Data entropy."""
-    try:
-        p_plus = sum(target) / len(target)
-        p_minus = 1 - p_plus
-        result = - p_plus * math.log2(p_plus) - p_minus * math.log2(p_minus)
-    except (ZeroDivisionError, ValueError):
-        result = 0
+    if not target:
+        return 0
+    result = 0
+    for i in range(2):
+        p = target.count(i) / len(target)
+        if p:
+            result -= p * math.log2(p)
     return result
 
 
@@ -145,4 +146,6 @@ if __name__ == '__main__':
         print(dict_data[i])
         print(f"True: {y_data[i]}")
         print(f"Decision: {decision_tree.decide(dict_data[i])}")
+        if y_data[i] != decision_tree.decide(dict_data[i]):
+            input()
     print_tree(decision_tree)
