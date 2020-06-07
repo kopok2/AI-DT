@@ -36,7 +36,7 @@ class BaseChaining(ABC):
 
     def __init__(self, rule_base, knowledge_base):
         self.knowledge_base = set(knowledge_base)
-        self.rule_base = rule_base
+        self.rule_base = [rule for rule in rule_base]
 
     @abstractmethod
     def run(self):
@@ -51,31 +51,50 @@ class ForwardChaining(BaseChaining):
         super().__init__(rule_base, knowledge_base)
 
     def run(self):
+        self.forward_run()
+
+    def forward_run(self):
         while rule := pop_first_match(self.rule_base, lambda r: r.passes_knowledge_check(self.knowledge_base)):
             self.knowledge_base.add(rule.result)
 
 
 class BackwardChaining(BaseChaining):
     def __init__(self, rule_base, knowledge_base):
-        self.regression_stack = []
         super().__init__(rule_base, knowledge_base)
 
     def run(self):
-        self.regression_stack = [rule for rule in self.rule_base if not rule.passes_knowledge_check(self.knowledge_base)]
+        for rule in self.rule_base:
+            if resolved := self.resolve_backwards(rule):
+                self.knowledge_base.add(resolved)
 
-        for rule in self.regression_stack:
-            rule = find_first_match(self.rule_base, lambda r: r.result == rule.result)
-            if not rule.passes_knowledge_check(self.knowledge_base):
-                self.regression_stack.append(rule)
+    def resolve_backwards(self, rule):
+        if not rule:
+            return None
+
+        first = True if rule.first in self.knowledge_base else self.resolve_backwards(
+            find_first_match(self.rule_base, lambda r: r.result == rule.first))
+        second = True if rule.second in self.knowledge_base else self.resolve_backwards(
+            find_first_match(self.rule_base, lambda r: r.result == rule.second))
+
+        if first and second:
+            return rule.result
+
+        return None
 
 
-class MixedChaining(BaseChaining):
+class MixedChaining(BackwardChaining, ForwardChaining):
     def __init__(self, rule_base, knowledge_base):
         super().__init__(rule_base, knowledge_base)
 
     def run(self):
-        while rule := pop_first_match(self.rule_base, lambda r: r.passes_knowledge_check(self.knowledge_base)):
-            self.knowledge_base.add(rule.result)
+
+        for rule in self.rule_base:
+            if resolved := self.resolve_backwards(rule):
+                self.knowledge_base.add(resolved)
+            else:
+                break
+
+        self.forward_run()
 
 
 def inference_factory(inference_type, rule_base, knowledge_base):
@@ -93,8 +112,8 @@ def inference_factory(inference_type, rule_base, knowledge_base):
 
 if __name__ == '__main__':
     rules = [
-        Rule(first="wiecej niż 50 pracowników", second="długie projekty", result="duża firma"),
         Rule(first="duża firma", second="brak klauzuli poufności", result="korporacja"),
+        Rule(first="wiecej niż 50 pracowników", second="długie projekty", result="duża firma"),
         Rule(first="mniej niz 50 pracowników", second="krótkie projekty", result="mała firma"),
         Rule(first="mała firma", second="brak klauzuli poufności", result="startup"),
         Rule(first="duża firma", second="calkowita klauzula poufności", result="firma państwowa")
@@ -104,4 +123,13 @@ if __name__ == '__main__':
     forward_chaining = inference_factory(InferenceType.FORWARD_CHAINING, rules, knowledge)
     forward_chaining.run()
 
+    backwards_chaining = inference_factory(InferenceType.BACKWARD_CHAINING, rules, knowledge)
+    backwards_chaining.run()
 
+    print(backwards_chaining.output_results())
+
+    mixed_chaining = inference_factory(InferenceType.MIXED_CHAINING, rules, knowledge)
+    mixed_chaining.run()
+
+    assert forward_chaining.output_results() == backwards_chaining.output_results()
+    assert forward_chaining.output_results() == mixed_chaining.output_results()
